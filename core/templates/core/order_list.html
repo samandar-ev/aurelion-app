@@ -1,0 +1,113 @@
+{% extends 'core/base.html' %}
+{% load number_filters %}
+
+{% block title %}Orders - AURELION{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Orders</h2>
+        <p class="text-muted text-sm mb-0">Complete order history</p>
+    </div>
+    {% if user.is_cashier and not user.is_owner %}
+    <a href="{% url 'pos' %}" class="btn btn-primary">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="me-1">
+            <path d="M12 5v14M5 12h14"/>
+        </svg>
+        New Sale
+    </a>
+    {% endif %}
+</div>
+
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Order</th>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th class="text-end">Amount</th>
+                    <th class="text-center">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if orders %}
+                {% for order in orders %}
+                <tr style="cursor: pointer;" onclick="window.location='{% url 'order_detail' order.id %}';">
+                    <td>
+                        <span class="fw-semibold">#{{ order.order_code|default:order.id }}</span>
+                        {% if order.type == 'EXCHANGE' %}
+                        <span class="badge bg-info ms-1">Exchange</span>
+                        {% elif order.type == 'RETURN' %}
+                        <span class="badge bg-warning ms-1">Return</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span>{{ order.created_at|date:"M d, Y" }}</span>
+                        <span class="text-muted text-sm ms-1">{{ order.created_at|time:"H:i" }}</span>
+                    </td>
+                    <td>{{ order.client|default:"Walk-in" }}</td>
+                    <td class="text-end">
+                        <span class="{% if order.type == 'RETURN' %}text-danger{% else %}fw-medium{% endif %}">
+                            ${{ order.total_amount }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        {% if order.ui_status == 'EXCHANGE' %}
+                        <span class="badge bg-info">Exchange</span>
+                        {% elif order.status == 'FULLY_RETURNED' %}
+                        <span class="badge bg-secondary">Returned</span>
+                        {% elif order.status == 'PARTIALLY_RETURNED' %}
+                        <span class="badge bg-warning">Partial</span>
+                        {% elif order.status == 'REFUNDED' %}
+                        <span class="badge bg-danger">Refunded</span>
+                        {% elif order.status == 'COMPLETED' %}
+                        <span class="badge bg-success">Completed</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ order.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <p class="empty-state-icon">📋</p>
+                            <p class="empty-state-title">No orders yet</p>
+                            <p class="empty-state-text">Orders will appear here once you make a sale</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+{% if is_paginated %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">← Prev</a>
+        </li>
+        {% endif %}
+
+        <li class="page-item disabled">
+            <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        </li>
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next →</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

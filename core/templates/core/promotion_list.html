@@ -1,0 +1,128 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Promotions - AURELION{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Promotions</h2>
+        <p class="text-muted text-sm mb-0">Manage discounts and special offers</p>
+    </div>
+    <a href="{% url 'promotion_create' %}" class="btn btn-primary">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="me-1">
+            <path d="M12 5v14M5 12h14"/>
+        </svg>
+        New Promotion
+    </a>
+</div>
+
+
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <div class="d-flex gap-2">
+            <a href="{% url 'promotion_list' %}"
+                class="btn btn-sm {% if not status_filter %}btn-dark{% else %}btn-ghost{% endif %}">All</a>
+            <a href="{% url 'promotion_list' %}?status=active"
+                class="btn btn-sm {% if status_filter == 'active' %}btn-dark{% else %}btn-ghost{% endif %}">Active</a>
+            <a href="{% url 'promotion_list' %}?status=scheduled"
+                class="btn btn-sm {% if status_filter == 'scheduled' %}btn-dark{% else %}btn-ghost{% endif %}">Scheduled</a>
+            <a href="{% url 'promotion_list' %}?status=expired"
+                class="btn btn-sm {% if status_filter == 'expired' %}btn-dark{% else %}btn-ghost{% endif %}">Expired</a>
+        </div>
+    </div>
+</div>
+
+{% if promotions %}
+<div class="row g-3">
+    {% for promo in promotions %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h6 class="mb-1">{{ promo.name }}</h6>
+                        {% with status=promo.get_status %}
+                        <span class="badge {% if status == 'Active' %}bg-success{% elif status == 'Scheduled' %}bg-info{% else %}bg-secondary{% endif %}">
+                            {{ status }}
+                        </span>
+                        {% endwith %}
+                    </div>
+                    {% if promo.code %}
+                    <code class="text-xs" style="background: var(--bg-tertiary); padding: 0.25rem 0.5rem; border-radius: 4px;">{{ promo.code }}</code>
+                    {% endif %}
+                </div>
+                
+                
+                <div class="mb-3 p-3 rounded-md" style="background: var(--bg-tertiary);">
+                    <span class="text-brand fw-semibold" style="font-size: 1.125rem;">
+                        {% if promo.promo_type == 'PERCENTAGE' %}
+                        {{ promo.discount_value }}% OFF
+                        {% elif promo.promo_type == 'FIXED' %}
+                        ${{ promo.discount_value }} OFF
+                        {% elif promo.promo_type == 'BOGO' %}
+                        Buy {{ promo.buy_quantity }} Get {{ promo.get_quantity }} Free
+                        {% elif promo.promo_type == 'TIERED' %}
+                        Up to {{ promo.platinum_discount }}% OFF
+                        {% else %}
+                        {{ promo.get_promo_type_display }}
+                        {% endif %}
+                    </span>
+                    <p class="text-muted text-xs mb-0 mt-1">{{ promo.get_applies_to_display }}
+                        {% if promo.applies_to == 'CATEGORY' %} · {{ promo.category }}{% endif %}
+                        {% if promo.applies_to == 'BRAND' %} · {{ promo.brand }}{% endif %}
+                    </p>
+                </div>
+
+                {% if promo.description %}
+                <p class="text-muted text-sm mb-3">{{ promo.description|truncatewords:15 }}</p>
+                {% endif %}
+
+                
+                <div class="text-xs text-muted">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Valid</span>
+                        <span>{{ promo.start_date|date:"M d" }} – {{ promo.end_date|date:"M d, Y" }}</span>
+                    </div>
+                    {% if promo.max_uses > 0 %}
+                    <div class="d-flex justify-content-between">
+                        <span>Usage</span>
+                        <span>{{ promo.used_count }} / {{ promo.max_uses }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <div class="d-flex gap-1">
+                    <a href="{% url 'promotion_edit' promo.pk %}" class="btn btn-sm btn-ghost">Edit</a>
+                    <form action="{% url 'promotion_toggle' promo.pk %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-ghost">
+                            {% if promo.is_active %}Disable{% else %}Enable{% endif %}
+                        </button>
+                    </form>
+                </div>
+                <form action="{% url 'promotion_delete' promo.pk %}" method="post" class="d-inline"
+                    onsubmit="return confirm('Delete this promotion?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-ghost text-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <p class="empty-state-icon">🎁</p>
+            <p class="empty-state-title">No promotions found</p>
+            <p class="empty-state-text">Create your first promotion to get started</p>
+            <a href="{% url 'promotion_create' %}" class="btn btn-primary mt-3">Create Promotion</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

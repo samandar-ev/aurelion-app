@@ -1,0 +1,80 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Login - AURELION{% endblock %}
+
+{% block content %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center" 
+     style="background: linear-gradient(135deg, #0D0D0D 0%, #1A1A1A 50%, #0D0D0D 100%); margin: -1.5rem; padding: 1.5rem;">
+    
+    <div style="width: 100%; max-width: 380px;">
+        
+        <div class="text-center mb-5">
+            <h1 style="font-size: 1.5rem; font-weight: 700; letter-spacing: 0.3em; color: #B8965C; margin-bottom: 0.5rem;">
+                AURELION
+            </h1>
+            <p style="font-size: 0.75rem; color: rgba(255,255,255,0.4); letter-spacing: 0.1em; text-transform: uppercase;">
+                Inventory Management System
+            </p>
+        </div>
+        
+        
+        <div class="card" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(20px);">
+            <div class="card-body p-4">
+                <h2 style="font-size: 1.125rem; font-weight: 600; color: #fff; margin-bottom: 0.25rem;">Welcome back</h2>
+                <p style="font-size: 0.8125rem; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem;">Sign in to continue</p>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                    <div class="alert" style="background: rgba(239, 68, 68, 0.1); border-left: 3px solid #EF4444; color: #FCA5A5; font-size: 0.8125rem; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                        {{ form.non_field_errors.0 }}
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="id_username" style="font-size: 0.75rem; font-weight: 500; color: rgba(255,255,255,0.6); margin-bottom: 0.5rem; display: block;">
+                            Username
+                        </label>
+                        <input type="text" name="username" id="id_username" required autofocus
+                               class="form-control"
+                               style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 0.75rem 1rem;">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="id_password" style="font-size: 0.75rem; font-weight: 500; color: rgba(255,255,255,0.6); margin-bottom: 0.5rem; display: block;">
+                            Password
+                        </label>
+                        <input type="password" name="password" id="id_password" required
+                               class="form-control"
+                               style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 0.75rem 1rem;">
+                    </div>
+
+                    <button type="submit" class="btn w-100" 
+                            style="background: #B8965C; color: #0D0D0D; font-weight: 600; padding: 0.75rem; font-size: 0.875rem;">
+                        Sign In
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        
+        <p class="text-center mt-4" style="font-size: 0.6875rem; color: rgba(255,255,255,0.3);">
+            © {% now "Y" %} Aurelion. All rights reserved.
+        </p>
+    </div>
+</div>
+
+<style>
+    .form-control:focus {
+        background: rgba(255,255,255,0.08) !important;
+        border-color: #B8965C !important;
+        box-shadow: 0 0 0 3px rgba(184, 150, 92, 0.15) !important;
+        color: #fff !important;
+    }
+    
+    .form-control::placeholder {
+        color: rgba(255,255,255,0.3);
+    }
+</style>
+{% endblock %}

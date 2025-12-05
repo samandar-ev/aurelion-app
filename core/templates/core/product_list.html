@@ -1,0 +1,293 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{% if is_archived_view %}Archived{% else %}Inventory{% endif %} - AURELION{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{% if is_archived_view %}Archived Products{% else %}Inventory{% endif %}</h2>
+        <p class="text-muted text-sm mb-0">{% if is_archived_view %}View and restore archived items{% else %}Manage your product catalog{% endif %}</p>
+    </div>
+    {% if user.is_owner and not is_archived_view %}
+    <div class="d-flex gap-2">
+        <a href="{% url 'luxury_product_create' %}" class="btn btn-primary">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="me-1">
+                <path d="M12 5v14M5 12h14"/>
+            </svg>
+            Add Product
+        </a>
+        <a href="{% url 'product_create' %}" class="btn btn-secondary">Quick Add</a>
+    </div>
+    {% endif %}
+</div>
+
+{% if variant_matches %}
+<div class="alert alert-info mb-4">
+    <strong class="text-sm">Showing variants matching SKU "{{ search_term }}"</strong>
+    <div class="table-responsive mt-2">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>SKU</th>
+                    <th>Color</th>
+                    <th>Size</th>
+                    <th class="text-end">Price</th>
+                    <th class="text-end">Qty</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in variant_matches %}
+                <tr>
+                    <td>{{ v.product.brand }} {{ v.product.name }}</td>
+                    <td><code class="text-xs">{{ v.sku }}</code></td>
+                    <td>{{ v.color }}</td>
+                    <td>{{ v.size }}</td>
+                    <td class="text-end">${{ v.retail_price }}</td>
+                    <td class="text-end">{{ v.initial_quantity }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end" id="searchSortForm">
+            <div class="col-md-5">
+                <input type="text" name="q" class="form-control form-control-sm" 
+                       placeholder="Search by brand, name, or SKU..." 
+                       value="{{ request.GET.q }}" 
+                       onchange="this.form.submit()">
+            </div>
+            <div class="col-md-4">
+                <select name="sort" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Sort by: Default</option>
+                    <option value="name_asc" {% if request.GET.sort == 'name_asc' %}selected{% endif %}>Name (A-Z)</option>
+                    <option value="name_desc" {% if request.GET.sort == 'name_desc' %}selected{% endif %}>Name (Z-A)</option>
+                    <option value="price_asc" {% if request.GET.sort == 'price_asc' %}selected{% endif %}>Price (Low-High)</option>
+                    <option value="price_desc" {% if request.GET.sort == 'price_desc' %}selected{% endif %}>Price (High-Low)</option>
+                    <option value="date_desc" {% if request.GET.sort == 'date_desc' %}selected{% endif %}>Newest First</option>
+                    <option value="stock_asc" {% if request.GET.sort == 'stock_asc' %}selected{% endif %}>Stock (Low-High)</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="button" class="btn btn-sm btn-secondary w-100" data-bs-toggle="modal" data-bs-target="#filterModal">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="me-1">
+                        <path d="M3 4h18M3 12h12M3 20h6"/>
+                    </svg>
+                    Filters
+                    {% if active_filters %}<span class="badge bg-dark ms-1">{{ active_filters }}</span>{% endif %}
+                </button>
+            </div>
+            {% if request.GET.brand %}<input type="hidden" name="brand" value="{{ request.GET.brand }}">{% endif %}
+            {% if request.GET.season %}<input type="hidden" name="season" value="{{ request.GET.season }}">{% endif %}
+            {% if request.GET.category %}<input type="hidden" name="category" value="{{ request.GET.category }}">{% endif %}
+            {% if request.GET.material %}<input type="hidden" name="material" value="{{ request.GET.material }}">{% endif %}
+        </form>
+    </div>
+</div>
+
+
+<div class="modal fade" id="filterModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="get">
+                <div class="modal-header">
+                    <h5 class="modal-title">Filter Products</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {% if request.GET.q %}<input type="hidden" name="q" value="{{ request.GET.q }}">{% endif %}
+                    {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
+
+                    <div class="mb-3">
+                        <label class="form-label text-sm fw-medium">Category</label>
+                        <select name="category" class="form-select">
+                            <option value="">All Categories</option>
+                            <option value="Bags" {% if request.GET.category == 'Bags' %}selected{% endif %}>Bags</option>
+                            <option value="Shoes" {% if request.GET.category == 'Shoes' %}selected{% endif %}>Shoes</option>
+                            <option value="Clothing" {% if request.GET.category == 'Clothing' %}selected{% endif %}>Clothing</option>
+                            <option value="Accessories" {% if request.GET.category == 'Accessories' %}selected{% endif %}>Accessories</option>
+                            <option value="Jewelry" {% if request.GET.category == 'Jewelry' %}selected{% endif %}>Jewelry</option>
+                            <option value="Watches" {% if request.GET.category == 'Watches' %}selected{% endif %}>Watches</option>
+                            <option value="Eyewear" {% if request.GET.category == 'Eyewear' %}selected{% endif %}>Eyewear</option>
+                            <option value="Fragrance" {% if request.GET.category == 'Fragrance' %}selected{% endif %}>Fragrance</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-sm fw-medium">Brand</label>
+                        <select name="brand" class="form-select">
+                            <option value="">All Brands</option>
+                            {% for brand in brands %}
+                            <option value="{{ brand }}" {% if request.GET.brand == brand %}selected{% endif %}>{{ brand }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-sm fw-medium">Season</label>
+                        <select name="season" class="form-select">
+                            <option value="">All Seasons</option>
+                            {% for season in seasons %}
+                            <option value="{{ season }}" {% if request.GET.season == season %}selected{% endif %}>{{ season }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label text-sm fw-medium">Material</label>
+                        <select name="material" class="form-select">
+                            <option value="">All Materials</option>
+                            {% for material in materials %}
+                            <option value="{{ material }}" {% if request.GET.material == material %}selected{% endif %}>{{ material }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="{% if is_archived_view %}{% url 'archived_product_list' %}{% else %}{% url 'product_list' %}{% endif %}" class="btn btn-ghost">Clear All</a>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+{% if page_obj %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <span class="text-muted text-sm">
+        {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} products
+        {% if request.GET.q %}<span class="ms-1">for "<strong>{{ request.GET.q }}</strong>"</span>{% endif %}
+    </span>
+    {% if active_filters or request.GET.q %}
+    <a href="{% if is_archived_view %}{% url 'archived_product_list' %}{% else %}{% url 'product_list' %}{% endif %}" class="btn btn-sm btn-ghost">Clear all</a>
+    {% endif %}
+</div>
+{% endif %}
+
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 60px;"></th>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>SKU</th>
+                    <th class="text-center">Stock</th>
+                    <th class="text-center">Variants</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr style="cursor: pointer;" onclick="window.location='{% url 'product_detail' product.pk %}';">
+                    <td>
+                        {% if product.image %}
+                        <img src="{{ product.image.url }}" alt="" 
+                             style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px;">
+                        {% else %}
+                        <div style="width: 44px; height: 44px; background: var(--bg-tertiary); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                            <span class="text-muted text-xs">—</span>
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <p class="fw-semibold mb-0">{{ product.brand }}</p>
+                        <p class="text-muted text-sm mb-0">{{ product.name }}</p>
+                    </td>
+                    <td>
+                        <span class="text-sm">{{ product.category }}</span>
+                        {% if product.season %}<br><span class="text-xs text-muted">{{ product.season }}</span>{% endif %}
+                    </td>
+                    <td><code class="text-xs">{{ product.base_sku }}</code></td>
+                    <td class="text-center">
+                        <span class="badge {% if product.total_quantity < 5 %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ product.total_quantity }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <span class="text-sm">{{ product.variants.count }}</span>
+                    </td>
+                    <td class="text-end" onclick="event.stopPropagation();">
+                        {% if user.is_owner %}
+                        <div class="d-flex gap-1 justify-content-end">
+                            <a href="{% url 'product_edit' product.pk %}" class="btn btn-sm btn-ghost">Edit</a>
+                            {% if is_archived_view %}
+                            <form action="{% url 'unarchive_product' product.pk %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-ghost text-success">Restore</button>
+                            </form>
+                            {% else %}
+                            <form action="{% url 'archive_product' product.pk %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-ghost text-warning">Archive</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <p class="empty-state-icon">📦</p>
+                            <p class="empty-state-title">No products found</p>
+                            <p class="empty-state-text">
+                                {% if request.GET.q or active_filters %}
+                                Try adjusting your search or filters
+                                {% else %}
+                                Start by adding your first product
+                                {% endif %}
+                            </p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+{% if page_obj and page_obj.paginator.num_pages > 1 %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.brand %}&brand={{ request.GET.brand }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.season %}&season={{ request.GET.season }}{% endif %}{% if request.GET.material %}&material={{ request.GET.material }}{% endif %}">
+                ← Prev
+            </a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.brand %}&brand={{ request.GET.brand }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.season %}&season={{ request.GET.season }}{% endif %}{% if request.GET.material %}&material={{ request.GET.material }}{% endif %}">{{ num }}</a>
+            </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.brand %}&brand={{ request.GET.brand }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.season %}&season={{ request.GET.season }}{% endif %}{% if request.GET.material %}&material={{ request.GET.material }}{% endif %}">
+                Next →
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

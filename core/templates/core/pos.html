@@ -1,0 +1,986 @@
+{% extends 'core/base.html' %}
+
+{% block title %}POS - AURELION{% endblock %}
+
+{% block content %}
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Point of Sale</h2>
+</div>
+
+<div class="row g-4">
+    
+    <div class="col-lg-8">
+        
+        <div class="card mb-3">
+            <div class="card-body py-3">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <div class="input-group">
+                            <span class="input-group-text bg-transparent border-end-0">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                                </svg>
+                            </span>
+                            <input type="text" class="form-control border-start-0" list="client-options" id="clientSearch"
+                                placeholder="Search client...">
+                            <button class="btn btn-secondary" type="button" id="selectClientBtn">Select</button>
+                        </div>
+                        <datalist id="client-options">
+                            {% for client in clients %}
+                            <option value="{{ client.first_name }} {{ client.last_name }} | {{ client.phone }}"
+                                data-id="{{ client.id }}"></option>
+                            {% endfor %}
+                        </datalist>
+                        <input type="hidden" id="clientIdHidden">
+                    </div>
+                    <div class="col-auto">
+                        <a href="{% url 'client_create' %}" class="btn btn-ghost btn-sm" target="_blank">+ New Client</a>
+                    </div>
+                </div>
+                <div class="text-sm text-muted mt-2" id="selectedClient">No client selected</div>
+            </div>
+        </div>
+
+        
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0" style="padding-right: 0;">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--text-tertiary);">
+                                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                                <path d="M7 8v8M12 8v8M17 8v8"/>
+                            </svg>
+                        </span>
+                        <input type="text" class="form-control border-start-0" list="product-options"
+                            placeholder="Scan barcode or type SKU..." autofocus id="productSearch"
+                            style="padding-left: 8px;">
+                    </div>
+                    <datalist id="product-options">
+                        {% for v in variant_data %}
+                        <option value="{{ v.sku }}"> {{ v.name }} ({{ v.color }} / {{ v.size }})</option>
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0" id="posTable">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th style="width: 100px;">Qty</th>
+                                <th class="text-end">Price</th>
+                                <th class="text-end">Total</th>
+                                <th style="width: 40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="empty-row">
+                                <td colspan="5">
+                                    <div class="empty-state py-4">
+                                        <p class="empty-state-icon">🛒</p>
+                                        <p class="empty-state-text">Scan an item to start</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="col-lg-4">
+        <div class="card" style="position: sticky; top: 80px;">
+            <div class="card-header">
+                <span class="fw-semibold">Order Summary</span>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2 text-sm">
+                    <span class="text-muted">Subtotal</span>
+                    <span id="subtotal">$0.00</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2 text-sm" id="promoDiscountRow" style="display: none;">
+                    <span class="text-muted">Promo Discount</span>
+                    <span class="text-success" id="promoDiscount">-$0.00</span>
+                </div>
+                <div class="divider"></div>
+                <div class="d-flex justify-content-between mb-3">
+                    <span class="fw-semibold">Total</span>
+                    <span class="fw-semibold text-brand" style="font-size: 1.25rem;" id="total">$0.00</span>
+                </div>
+
+                
+                <div class="mb-4">
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control" id="promoCodeInput" placeholder="Promo code" style="text-transform: uppercase;">
+                        <button class="btn btn-secondary" type="button" id="applyPromoBtn">Apply</button>
+                    </div>
+                    <div class="text-sm mt-1" id="promoStatus"></div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" type="button" id="completeSaleBtn">Complete Sale</button>
+                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal"
+                        data-bs-target="#returnModal">Return / Exchange</button>
+                </div>
+                <div class="text-muted text-sm text-center mt-3" id="posStatus"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="returnModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Return / Exchange</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                
+                <div id="returnStep1">
+                    <div class="mb-3">
+                        <label class="form-label">Order ID (6 characters)</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="returnOrderCode" placeholder="e.g. A1B2C3"
+                                maxlength="6" style="text-transform: uppercase;">
+                            <button class="btn btn-primary" type="button" id="lookupOrderBtn">Find Order</button>
+                        </div>
+                        <div class="text-danger small mt-1" id="returnLookupError"></div>
+                    </div>
+                </div>
+
+                
+                <div id="returnStep2" class="d-none">
+                    <div class="alert alert-light border mb-3">
+                        <strong>Order:</strong> <span id="returnOrderDisplay"></span><br>
+                        <strong>Client:</strong> <span id="returnClientDisplay"></span>
+                    </div>
+
+                    <h6 class="mb-2">Select Items to Return</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm align-middle" id="returnItemsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;"></th>
+                                    <th>Item</th>
+                                    <th style="width: 100px;">Qty</th>
+                                    <th class="text-end">Price</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Reason</label>
+                            <select class="form-select" id="returnReason">
+                                <option value="CHANGED_MIND">Changed my mind</option>
+                                <option value="DEFECTIVE">Defective / Damaged</option>
+                                <option value="WRONG_SIZE">Wrong size</option>
+                                <option value="WRONG_ITEM">Wrong item delivered</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Action</label>
+                            <select class="form-select" id="returnAction">
+                                <option value="REFUND">Refund</option>
+                                <option value="EXCHANGE">Exchange</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    
+                    <div id="exchangeSection" class="d-none border-top pt-3">
+                        <h6 class="mb-2">Select Replacement Items</h6>
+                        <div class="mb-2">
+                            <input type="text" class="form-control form-control-sm" list="product-options"
+                                id="exchangeSearch" placeholder="Search replacement product...">
+                        </div>
+                        <table class="table table-sm align-middle" id="exchangeTable">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th style="width: 80px;">Qty</th>
+                                    <th class="text-end">Price</th>
+                                    <th style="width: 40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="card bg-light border-0 mt-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Refund Total:</span>
+                                <span class="text-danger" id="modalRefundTotal">-$0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1 d-none" id="modalExchangeTotalRow">
+                                <span>New Items Total:</span>
+                                <span id="modalExchangeTotal">$0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between fw-bold border-top pt-2">
+                                <span>Net Due:</span>
+                                <span id="modalNetDue">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary d-none" id="processReturnBtn">Process Return</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ variant_data|json_script:"variant-data" }}
+<script>
+    const variantData = JSON.parse(document.getElementById('variant-data').textContent);
+    const variantsBySku = {};
+    const variantsByProduct = {};
+    variantData.forEach(v => {
+        variantsBySku[v.sku] = v;
+        const key = v.name;
+        variantsByProduct[key] = variantsByProduct[key] || [];
+        variantsByProduct[key].push(v);
+    });
+
+    const productInput = document.getElementById('productSearch');
+    const tableBody = document.querySelector('#posTable tbody');
+    const subtotalEl = document.getElementById('subtotal');
+    const totalEl = document.getElementById('total');
+    const posStatus = document.getElementById('posStatus');
+    const clientSearch = document.getElementById('clientSearch');
+    const selectedClient = document.getElementById('selectedClient');
+    const selectClientBtn = document.getElementById('selectClientBtn');
+    const clientIdHidden = document.getElementById('clientIdHidden');
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    function currency(val) { return '$' + val.toFixed(2); }
+
+    // Discount state
+    let currentPromoDiscount = 0;
+    let currentPromoDesc = '';
+
+    // --- Main POS Logic ---
+    function recalc() {
+        let subtotal = 0;
+        const itemRows = tableBody.querySelectorAll('tr[data-sku]');
+        itemRows.forEach(row => {
+            const price = parseFloat(row.dataset.price);
+            const qty = parseInt(row.querySelector('.qty-input').value) || 0;
+            const line = price * qty;
+            row.querySelector('.line-total').innerText = currency(line);
+            subtotal += line;
+        });
+        tableBody.querySelector('.empty-row')?.classList.toggle('d-none', itemRows.length > 0);
+        
+        // If no items, reset discount state before totals
+        if (itemRows.length === 0) {
+            currentPromoDiscount = 0;
+            currentPromoDesc = '';
+            promoDiscountRow.style.display = 'none';
+            promoDiscountEl.innerText = currency(0);
+            promoStatus.innerHTML = '';
+        }
+
+        // Calculate total with discount (after potential reset)
+        subtotalEl.innerText = currency(subtotal);
+        const total = subtotal - currentPromoDiscount;
+        totalEl.innerText = currency(total);
+        
+        // Show/hide promo discount
+        if (currentPromoDiscount > 0) {
+            promoDiscountRow.style.display = 'flex';
+            promoDiscountEl.innerText = '-' + currency(currentPromoDiscount);
+        } else {
+            promoDiscountRow.style.display = 'none';
+        }
+        
+        // Preview discount if items exist
+        if (itemRows.length > 0) {
+            previewDiscount();
+        }
+    }
+    
+    // Debounce helper
+    let previewTimeout;
+    function previewDiscount() {
+        clearTimeout(previewTimeout);
+        previewTimeout = setTimeout(doPreviewDiscount, 300);
+    }
+    
+    function doPreviewDiscount() {
+        const orderItems = [];
+        tableBody.querySelectorAll('tr[data-sku]').forEach(row => {
+            orderItems.push({
+                sku: row.dataset.sku,
+                qty: parseInt(row.querySelector('.qty-input').value) || 0,
+                price: parseFloat(row.dataset.price) || 0,
+            });
+        });
+        
+        if (!orderItems.length) return;
+        
+        fetch("{% url 'pos_preview_discount' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({
+                items: orderItems,
+                client_id: clientIdHidden.value || null,
+                promo_code: appliedPromoCode || null
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                promoStatus.innerHTML = `<span class="text-danger">${data.error}</span>`;
+                currentPromoDiscount = 0;
+                currentPromoDesc = '';
+            } else {
+                currentPromoDiscount = data.discount || 0;
+                currentPromoDesc = data.description || '';
+                
+                if (currentPromoDiscount > 0) {
+                    promoDiscountRow.style.display = 'flex';
+                    promoDiscountEl.innerText = '-' + currency(currentPromoDiscount);
+                    if (currentPromoDesc && appliedPromoCode) {
+                        promoStatus.innerHTML = `<span class="text-success">✓ ${currentPromoDesc}</span>`;
+                    }
+                } else {
+                    promoDiscountRow.style.display = 'none';
+                }
+                
+                // Update total
+                const subtotal = parseFloat(subtotalEl.innerText.replace('$', '').replace(',', '')) || 0;
+                totalEl.innerText = currency(subtotal - currentPromoDiscount);
+            }
+        })
+        .catch(err => console.error('Preview error:', err));
+    }
+
+    function addItem(sku) {
+        const v = variantsBySku[sku];
+        if (!v) { posStatus.innerText = 'Product not found'; return; }
+        posStatus.innerText = '';
+        const existing = tableBody.querySelector(`tr[data-sku="${sku}"]`);
+        if (existing) {
+            const qtyInput = existing.querySelector('.qty-input');
+            qtyInput.value = parseInt(qtyInput.value || 0) + 1;
+            recalc();
+            return;
+        }
+        const tr = document.createElement('tr');
+        tr.dataset.sku = v.sku;
+        tr.dataset.price = v.price;
+        tr.innerHTML = `
+            <td>
+                <div class="fw-semibold">${v.name}</div>
+                <div class="text-muted small">${v.sku} | ${v.color} / ${v.size}</div>
+            </td>
+            <td style="max-width:120px;">
+                <input type="number" class="form-control form-control-sm qty-input" value="1" min="1">
+            </td>
+            <td>${currency(v.price)}</td>
+            <td class="line-total">${currency(v.price)}</td>
+            <td><button type="button" class="btn btn-delete btn-sm remove-line">&times;</button></td>
+        `;
+        tableBody.appendChild(tr);
+        tr.querySelector('.qty-input').addEventListener('input', recalc);
+        tr.querySelector('.remove-line').addEventListener('click', () => { tr.remove(); recalc(); });
+        recalc();
+    }
+
+    productInput.addEventListener('change', () => {
+        const value = productInput.value.trim();
+        if (!value) return;
+        if (variantsBySku[value]) {
+            addItem(value);
+        } else {
+            const key = Object.keys(variantsByProduct).find(name => name.toLowerCase().includes(value.toLowerCase()));
+            if (key) {
+                posStatus.innerText = `Showing variants for ${key}`;
+                tableBody.innerHTML = ''; // Clear for simplicity or append? Let's append actually.
+                // Actually if searching by name, maybe show a modal or something? 
+                // For now, just add all variants of that product to the list? No that's messy.
+                // Let's just add the first one or do nothing.
+                // Reverting to previous logic: clear and show variants? No, user might have items.
+                // Let's just try to find exact SKU match first.
+                posStatus.innerText = 'Product not found (try SKU)';
+            } else {
+                posStatus.innerText = 'Product not found';
+            }
+        }
+        productInput.value = '';
+    });
+
+    selectClientBtn.addEventListener('click', () => {
+        const val = clientSearch.value;
+        const option = document.querySelector(`#client-options option[value="${val}"]`);
+        if (option && option.dataset.id) {
+            clientIdHidden.value = option.dataset.id;
+            selectedClient.innerText = `Client: ${val}`;
+        } else {
+            clientIdHidden.value = '';
+            selectedClient.innerText = 'No client selected.';
+        }
+    });
+
+    // Promo code state
+    let appliedPromoCode = '';
+    const promoCodeInput = document.getElementById('promoCodeInput');
+    const applyPromoBtn = document.getElementById('applyPromoBtn');
+    const promoStatus = document.getElementById('promoStatus');
+    const promoDiscountRow = document.getElementById('promoDiscountRow');
+    const promoDiscountEl = document.getElementById('promoDiscount');
+
+    applyPromoBtn.addEventListener('click', () => {
+        const code = promoCodeInput.value.trim().toUpperCase();
+        if (!code) {
+            promoStatus.innerHTML = '<span class="text-danger">Enter a promo code</span>';
+            appliedPromoCode = '';
+            currentPromoDiscount = 0;
+            doPreviewDiscount();
+            return;
+        }
+        appliedPromoCode = code;
+        promoStatus.innerHTML = `<span class="text-muted">Validating...</span>`;
+        doPreviewDiscount(); // This will validate and show the discount
+    });
+
+    promoCodeInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyPromoBtn.click();
+        }
+    });
+    
+    // Clear promo code button
+    promoCodeInput.addEventListener('input', () => {
+        if (!promoCodeInput.value.trim()) {
+            appliedPromoCode = '';
+            promoStatus.innerHTML = '';
+            currentPromoDiscount = 0;
+            currentPromoDesc = '';
+            promoDiscountRow.style.display = 'none';
+            // Recalc total without promo
+            const subtotal = parseFloat(subtotalEl.innerText.replace('$', '').replace(',', '')) || 0;
+            totalEl.innerText = currency(subtotal);
+        }
+    });
+
+    document.getElementById('completeSaleBtn').addEventListener('click', () => {
+        const orderItems = [];
+        tableBody.querySelectorAll('tr[data-sku]').forEach(row => {
+            orderItems.push({
+                sku: row.dataset.sku,
+                qty: parseInt(row.querySelector('.qty-input').value) || 0,
+                price: parseFloat(row.dataset.price) || 0,
+            });
+        });
+        if (!orderItems.length) { posStatus.innerText = 'No items to checkout.'; return; }
+
+        const printWindow = window.open('', 'PRINT', 'height=600,width=400');
+        fetch("{% url 'pos_checkout' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({
+                items: orderItems,
+                client: clientSearch.value || '',
+                client_id: clientIdHidden.value || null,
+                discount: 0,
+                promo_code: appliedPromoCode || null
+            })
+        })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(err => Promise.reject(err));
+                }
+                return res.json();
+            })
+            .then(data => {
+                const receipt = buildReceipt(data);
+                openPrintWindow(receipt, printWindow);
+                posStatus.innerText = 'Sale completed.';
+                tableBody.innerHTML = '<tr class="empty-row"><td colspan="5" class="text-center py-4 text-muted">Scan an item to start order.</td></tr>';
+                recalc();
+                clientSearch.value = '';
+                clientIdHidden.value = '';
+                selectedClient.innerText = 'No client selected.';
+                // Reset promo
+                appliedPromoCode = '';
+                promoCodeInput.value = '';
+                promoStatus.innerHTML = '';
+            })
+            .catch(err => {
+                const errorMsg = err.error || err.message || 'Error completing sale.';
+                posStatus.innerText = errorMsg;
+                if (printWindow) printWindow.close();
+                console.error(err);
+            });
+    });
+
+    // --- Return Modal Logic ---
+    const returnModal = document.getElementById('returnModal');
+    const returnOrderCode = document.getElementById('returnOrderCode');
+    const lookupOrderBtn = document.getElementById('lookupOrderBtn');
+    const returnStep1 = document.getElementById('returnStep1');
+    const returnStep2 = document.getElementById('returnStep2');
+    const returnItemsTable = document.querySelector('#returnItemsTable tbody');
+    const returnAction = document.getElementById('returnAction');
+    const exchangeSection = document.getElementById('exchangeSection');
+    const exchangeSearch = document.getElementById('exchangeSearch');
+    const exchangeTable = document.querySelector('#exchangeTable tbody');
+    const processReturnBtn = document.getElementById('processReturnBtn');
+
+    lookupOrderBtn.addEventListener('click', () => {
+        const code = returnOrderCode.value.trim().toUpperCase();
+        if (!code) return;
+        fetch("{% url 'pos_return_lookup' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({ order_code: code }),
+        })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(err => Promise.reject(err));
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (data.allow_return === false) {
+                    const reason = data.reason || 'Return window exceeded.';
+                    document.getElementById('returnLookupError').innerText = reason;
+                    document.getElementById('returnSection').classList.add('d-none');
+                    return;
+                }
+                document.getElementById('returnLookupError').innerText = '';
+                const tbody = document.querySelector('#returnItemsTable tbody');
+                tbody.innerHTML = '';
+                data.items.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.dataset.id = item.id;
+                    tr.dataset.price = item.price;
+
+                    // Status-based styling and controls
+                    let statusBadge = '';
+                    let checkboxDisabled = '';
+                    let rowClass = '';
+
+                    if (item.status === 'returned') {
+                        statusBadge = '<span class="badge bg-secondary">🔁 Already Returned</span>';
+                        checkboxDisabled = 'disabled';
+                        rowClass = 'text-muted opacity-50';
+                    } else if (item.status === 'not_eligible') {
+                        statusBadge = '<span class="badge bg-danger">🚫 Not Eligible</span>';
+                        checkboxDisabled = 'disabled';
+                        rowClass = 'text-muted opacity-50';
+                    } else if (item.status === 'returnable') {
+                        statusBadge = '<span class="badge bg-success">✅ Returnable</span>';
+                    }
+
+                    tr.className = rowClass;
+                    tr.innerHTML = `
+                        <td><input type="checkbox" class="form-check-input return-check" ${checkboxDisabled}></td>
+                        <td>
+                            <div class="fw-semibold">${item.name}</div>
+                            <div class="text-muted small">${item.sku} | ${item.color} ${item.size}</div>
+                            ${item.returned_qty > 0 ? `<div class="text-warning small">Returned: ${item.returned_qty}/${item.original_qty}</div>` : ''}
+                            ${statusBadge}
+                        </td>
+                        <td><input type="number" class="form-control form-control-sm return-qty" value="${item.qty}" min="1" max="${item.qty}" disabled></td>
+                        <td class="text-end">$${item.price.toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+
+                    if (item.status === 'returnable') {
+                        const check = tr.querySelector('.return-check');
+                        const qty = tr.querySelector('.return-qty');
+                        check.addEventListener('change', () => {
+                            qty.disabled = !check.checked;
+                            recalcReturn();
+                        });
+                        qty.addEventListener('input', recalcReturn);
+                    }
+                });
+
+                document.getElementById('returnOrderDisplay').innerText = data.order_code;
+                document.getElementById('returnClientDisplay').innerText = data.client;
+
+                returnStep1.classList.add('d-none');
+                returnStep2.classList.remove('d-none');
+                processReturnBtn.classList.remove('d-none');
+                exchangeTable.innerHTML = '';
+                recalcReturn();
+            })
+            .catch(err => {
+                const errorMsg = err.error || err.reason || 'Order not found or error loading.';
+                document.getElementById('returnLookupError').innerText = errorMsg;
+                document.getElementById('returnSection').classList.add('d-none');
+                console.error(err);
+            });
+    });
+
+    returnAction.addEventListener('change', () => {
+        if (returnAction.value === 'EXCHANGE') {
+            exchangeSection.classList.remove('d-none');
+            document.getElementById('modalExchangeTotalRow').classList.remove('d-none');
+        } else {
+            exchangeSection.classList.add('d-none');
+            document.getElementById('modalExchangeTotalRow').classList.add('d-none');
+            exchangeTable.innerHTML = '';
+        }
+        recalcReturn();
+    });
+
+    exchangeSearch.addEventListener('change', () => {
+        const val = exchangeSearch.value.trim();
+        if (!val) return;
+        const v = variantsBySku[val];
+        if (v) {
+            // Check current stock (this would need to be added to variant_data in the backend)
+            // For now, we'll rely on backend validation during checkout
+            const tr = document.createElement('tr');
+            tr.dataset.sku = v.sku;
+            tr.dataset.price = v.price;
+            tr.innerHTML = `
+                <td>
+                    <div class="fw-semibold">${v.name}</div>
+                    <div class="text-muted small">${v.sku} | ${v.color} ${v.size}</div>
+                    ${v.stock !== undefined ? `<div class="text-info small">Stock: ${v.stock}</div>` : ''}
+                </td>
+                <td><input type="number" class="form-control form-control-sm ex-qty" value="1" min="1" ${v.stock !== undefined ? `max="${v.stock}"` : ''}></td>
+                <td class="text-end">$${v.price.toFixed(2)}</td>
+                <td><button type="button" class="btn btn-delete btn-sm remove-ex">&times;</button></td>
+            `;
+            exchangeTable.appendChild(tr);
+            const qtyInput = tr.querySelector('.ex-qty');
+            qtyInput.addEventListener('input', () => {
+                // Validate against stock if available
+                if (v.stock !== undefined && parseInt(qtyInput.value) > v.stock) {
+                    qtyInput.setCustomValidity(`Only ${v.stock} available in stock`);
+                } else {
+                    qtyInput.setCustomValidity('');
+                }
+                recalcReturn();
+            });
+            tr.querySelector('.remove-ex').addEventListener('click', () => { tr.remove(); recalcReturn(); });
+            recalcReturn();
+        }
+        exchangeSearch.value = '';
+    });
+
+    function recalcReturn() {
+        let refundTotal = 0;
+        returnItemsTable.querySelectorAll('tr').forEach(row => {
+            const check = row.querySelector('.return-check');
+            if (check.checked) {
+                const qty = parseInt(row.querySelector('.return-qty').value) || 0;
+                const price = parseFloat(row.dataset.price);
+                refundTotal += qty * price;
+            }
+        });
+
+        let exchangeTotal = 0;
+        exchangeTable.querySelectorAll('tr').forEach(row => {
+            const qty = parseInt(row.querySelector('.ex-qty').value) || 0;
+            const price = parseFloat(row.dataset.price);
+            exchangeTotal += qty * price;
+        });
+
+        const net = exchangeTotal - refundTotal;
+        document.getElementById('modalRefundTotal').innerText = `-$${refundTotal.toFixed(2)}`;
+        document.getElementById('modalExchangeTotal').innerText = `$${exchangeTotal.toFixed(2)}`;
+        document.getElementById('modalNetDue').innerText = `${net >= 0 ? '$' : '-$'}${Math.abs(net).toFixed(2)}`;
+
+        // Update button text?
+        processReturnBtn.innerText = net > 0 ? `Pay $${net.toFixed(2)} & Process` : (net < 0 ? `Refund $${Math.abs(net).toFixed(2)} & Process` : 'Process Return');
+    }
+
+    processReturnBtn.addEventListener('click', () => {
+        const returnItems = [];
+        returnItemsTable.querySelectorAll('tr').forEach(row => {
+            if (row.querySelector('.return-check').checked) {
+                returnItems.push({
+                    id: row.dataset.id,
+                    qty: parseInt(row.querySelector('.return-qty').value) || 0
+                });
+            }
+        });
+
+        const replacementItems = [];
+        exchangeTable.querySelectorAll('tr').forEach(row => {
+            replacementItems.push({
+                sku: row.dataset.sku,
+                qty: parseInt(row.querySelector('.ex-qty').value) || 0,
+                price: parseFloat(row.dataset.price)
+            });
+        });
+
+        if (!returnItems.length) { alert('Select at least one item to return.'); return; }
+
+        fetch("{% url 'pos_return_checkout' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({
+                order_code: document.getElementById('returnOrderDisplay').innerText,
+                reason: document.getElementById('returnReason').value,
+                action: returnAction.value,
+                return_items: returnItems,
+                replacement_items: replacementItems
+            })
+        })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(err => Promise.reject(err));
+                }
+                return res.json();
+            })
+            .then(data => {
+                console.log('Return processed successfully:', data);
+                const receipt = buildReturnReceipt(data);
+                console.log('Receipt generated, opening print window...');
+                const printWindow = window.open('', 'PRINT', 'height=600,width=400');
+                if (!printWindow) {
+                    alert('Please allow popups to print the receipt.');
+                    posStatus.innerText = 'Return processed. Please enable popups to print receipt.';
+                } else {
+                    openPrintWindow(receipt, printWindow);
+                }
+
+                // Reset Modal
+                const modal = bootstrap.Modal.getInstance(returnModal);
+                modal.hide();
+                returnStep1.classList.remove('d-none');
+                returnStep2.classList.add('d-none');
+                processReturnBtn.classList.add('d-none');
+                returnOrderCode.value = '';
+                posStatus.innerText = 'Return processed successfully.';
+            })
+            .catch(err => {
+                const errorMsg = err.error || 'Error processing return.';
+                alert(errorMsg);
+                posStatus.innerText = errorMsg;
+                console.error(err);
+            });
+    });
+
+    // --- Receipt Generators ---
+    function buildReceipt(orderData) {
+        const now = new Date(orderData.created_at || Date.now());
+        const lines = orderData.items || [];
+        const subtotal = orderData.subtotal || 0;
+        const discount = orderData.discount || 0;
+        const total = orderData.total || subtotal;
+        const client = orderData.client || 'Walk-in';
+        const cashier = orderData.cashier || '{{ request.user.username }}';
+        const orderCode = orderData.order_code || orderData.order_id || '';
+
+        const itemsRows = lines.map(l => `
+            <tr>
+                <td>
+                    <div class="item-name">${l.name}</div>
+                    <div class="item-meta">${l.sku} • ${l.color || ''} ${l.size || ''}</div>
+                </td>
+                <td class="text-center">${l.qty}</td>
+                <td class="text-end">${currency(l.price)}</td>
+                <td class="text-end">${currency(l.total)}</td>
+            </tr>
+        `).join('');
+
+        return `
+        <html>
+        <head>
+            <style>
+                @page { margin: 18mm; }
+                body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #0f0f0f; padding: 0; margin: 0; }
+                .wrap { padding: 8px 0; }
+                .brand { letter-spacing: 0.18em; font-size: 14px; font-weight: 700; color: #111; }
+                .muted { color: #6b7280; font-size: 11px; }
+                .header { margin-bottom: 12px; }
+                .header-row { display: flex; justify-content: space-between; align-items: center; }
+                .badge { display: inline-block; padding: 4px 10px; border: 1px solid #d1d5db; border-radius: 999px; font-size: 11px; color: #111; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th, td { padding: 8px 0; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+                th { text-align: left; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; font-size: 11px; }
+                .text-center { text-align: center; }
+                .text-end { text-align: right; }
+                .item-name { font-weight: 600; color: #111827; }
+                .item-meta { color: #9ca3af; font-size: 11px; }
+                .totals { margin-top: 12px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+                .totals-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 12px; }
+                .totals-row.strong { font-weight: 700; font-size: 13px; }
+                .accent { color: #b8965c; }
+                .footer { margin-top: 16px; text-align: center; font-size: 11px; color: #6b7280; }
+            </style>
+        </head>
+        <body>
+            <div class="wrap">
+                <div class="header">
+                    <div class="header-row">
+                        <div>
+                            <div class="brand">AURELION</div>
+                            <div class="muted">Luxury Retail • VAT Included</div>
+                        </div>
+                        ${orderCode ? `<span class="badge">Order ${orderCode}</span>` : ''}
+                    </div>
+                    <div class="muted" style="margin-top:6px;">
+                        Client: ${client} &nbsp; • &nbsp; Cashier: ${cashier} &nbsp; • &nbsp; Date: ${now.toLocaleString()}
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-center">Qty</th>
+                            <th class="text-end">Price</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsRows || '<tr><td colspan="4">No items</td></tr>'}
+                    </tbody>
+                </table>
+
+                <div class="totals">
+                    <div class="totals-row"><span>Subtotal</span><span>${currency(subtotal)}</span></div>
+                    <div class="totals-row"><span>Discounts</span><span>${discount > 0 ? '-' + currency(discount) : currency(0)}</span></div>
+                    <div class="totals-row strong"><span>Total</span><span>${currency(total)}</span></div>
+                </div>
+
+                <div class="footer">
+                    Thank you for choosing AURELION. We look forward to serving you again.
+                </div>
+            </div>
+        </body>
+        </html>`;
+    }
+
+    function buildReturnReceipt(data) {
+        const refundAmount = parseFloat(data.refund_amount) || 0;
+        const exchangeTotal = parseFloat(data.exchange_total) || 0;
+        const net = parseFloat(data.net_due) || (exchangeTotal - refundAmount);
+        const now = new Date(data.created_at || Date.now());
+
+        let returnedRows = '';
+        if (data.returned_items && data.returned_items.length) {
+            returnedRows += `<tr><td colspan="4" class="fw-bold bg-light" style="font-size:11px; padding-top:8px;">RETURNED ITEMS</td></tr>`;
+            data.returned_items.forEach(item => {
+                const price = parseFloat(item.price) || 0;
+                const total = parseFloat(item.total) || (price * item.qty);
+                returnedRows += `
+                <tr>
+                    <td>
+                        <div class="fw-semibold">${item.name || 'Unknown'}</div>
+                        <div class="text-muted small">${item.sku || ''}</div>
+                    </td>
+                    <td class="text-center">-${item.qty}</td>
+                    <td class="text-end">$${price.toFixed(2)}</td>
+                    <td class="text-end text-danger">-$${total.toFixed(2)}</td>
+                </tr>`;
+            });
+        }
+
+        let replacementRows = '';
+        if (data.replacement_items && data.replacement_items.length) {
+            replacementRows += `<tr><td colspan="4" class="fw-bold bg-light" style="font-size:11px; padding-top:8px;">REPLACEMENT ITEMS</td></tr>`;
+            data.replacement_items.forEach(item => {
+                const price = parseFloat(item.price) || 0;
+                const total = parseFloat(item.total) || (price * item.qty);
+                replacementRows += `
+                <tr>
+                    <td>
+                        <div class="fw-semibold">${item.name || 'Unknown'}</div>
+                        <div class="text-muted small">${item.sku || ''}</div>
+                    </td>
+                    <td class="text-center">${item.qty}</td>
+                    <td class="text-end">$${price.toFixed(2)}</td>
+                    <td class="text-end">$${total.toFixed(2)}</td>
+                </tr>`;
+            });
+        }
+
+        return `
+        <html><head>
+        <style>
+            body { font-family: 'Inter', sans-serif; padding: 24px; color: #111; }
+            h1 { letter-spacing: 1px; }
+            .muted { color: #777; font-size: 13px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { padding: 8px 0; border-bottom: 1px solid #eee; }
+            th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .totals { margin-top: 16px; border-top: 2px solid #eee; padding-top: 12px; }
+            .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
+            .accent { color: #D4AF37; margin-top: 24px; text-align: center; font-weight: 500; }
+        </style>
+        </head>
+        <body>
+            <h1>AURELION</h1>
+            <div class="muted">Date: ${now.toLocaleString()}</div>
+            <div class="muted">Cashier: ${data.cashier || 'Staff'}</div>
+            <div class="muted">Client: ${data.client || 'Walk-in'}</div>
+            <div class="muted">Original Order: ${data.original_order_code || data.original_order || ''}</div>
+            <div class="muted">Type: ${data.action || 'REFUND'}</div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Price</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${returnedRows || '<tr><td colspan="4">No items</td></tr>'}
+                    ${replacementRows}
+                </tbody>
+            </table>
+            
+            <div class="totals">
+                <div><span>Total Refund</span><span class="text-danger">-$${refundAmount.toFixed(2)}</span></div>
+                ${exchangeTotal > 0 ? `<div><span>New Items</span><span>$${exchangeTotal.toFixed(2)}</span></div>` : ''}
+                <div style="font-weight:bold; font-size:1.1em; margin-top:8px;">
+                    <span>Net ${net >= 0 ? 'Due' : 'Refund'}</span>
+                    <span>$${Math.abs(net).toFixed(2)}</span>
+                </div>
+            </div>
+            
+            <p class="accent">Thank you for shopping with us.</p>
+        </body></html>
+        `;
+    }
+
+    function openPrintWindow(html, winRef) {
+        const w = winRef || window.open('', 'PRINT', 'height=600,width=400');
+        if (!w) {
+            console.error('Failed to open print window');
+            return false;
+        }
+        try {
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            // Don't auto-close - let user close it manually after printing
+            setTimeout(() => {
+                w.print();
+            }, 250);
+            return true;
+        } catch (e) {
+            console.error('Error writing to print window:', e);
+            return false;
+        }
+    }
+</script>
+{% endblock %}

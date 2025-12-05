@@ -1,0 +1,81 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Client Detail - AURELION{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ client.first_name }} {{ client.last_name }}</h2>
+        <p class="text-muted small mb-0">Tier: <span class="badge bg-light text-dark border">{{
+                client.dynamic_tier_label }}</span></p>
+    </div>
+    <a href="{% url 'client_list' %}" class="btn btn-view">&larr; Back</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-muted small">Phone</div>
+                <div>{{ client.phone }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Email</div>
+                <div>{{ client.email|default:"-" }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Visits / Orders</div>
+                <div>{{ client.order_set.count }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">Purchase History</div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Order</th>
+                    <th>Date</th>
+                    <th>Items</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in client.order_set.all %}
+                <tr>
+                    <td>#{{ order.order_code|default:order.id }}</td>
+                    <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <small class="text-muted">
+                            {% for item in order.items.all %}
+                            {{ item.variant.product.name }} ({{ item.quantity }}){% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        </small>
+                    </td>
+                    <td>
+                        {% if order.ui_status == 'EXCHANGE' %}
+                        <span class="badge bg-warning text-dark">Exchange</span>
+                        {% elif order.status == 'REFUNDED' %}
+                        <span class="badge bg-danger">Refunded</span>
+                        {% elif order.status == 'COMPLETED' %}
+                        <span class="badge bg-success">Completed</span>
+                        {% else %}
+                        <span class="badge bg-light text-dark border">{{ order.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>${{ order.total_amount }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">No orders yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{{ product.name }} - AURELION{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'product_list' %}" class="text-decoration-none text-muted small">&larr; Back to Products</a>
+</div>
+
+<div class="row g-4">
+    
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h5 class="text-muted text-uppercase small mb-1">{{ product.brand }}</h5>
+                        <h2 class="mb-0">
+                            {{ product.name }}
+                            {% if product.is_luxury_product %}
+                            <span class="badge bg-warning text-dark fs-6 align-middle"><i class="bi bi-gem"></i>
+                                Luxury</span>
+                            {% endif %}
+                        </h2>
+                    </div>
+                    {% if user.is_owner %}
+                    <div class="btn-group">
+                        <a href="{% url 'product_edit' product.pk %}" class="btn btn-sm btn-edit">Edit</a>
+                        <a href="{% url 'product_delete' product.pk %}" class="btn btn-sm btn-delete">Delete</a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <span class="text-muted small d-block">Base SKU</span>
+                    <span class="font-monospace">{{ product.base_sku }}</span>
+                </div>
+                <div class="mb-3">
+                    <span class="text-muted small d-block">Category</span>
+                    <span>{{ product.category }}</span>
+                </div>
+                <div class="mb-3">
+                    <span class="text-muted small d-block">Collection</span>
+                    <span>{{ product.collection|default:"-" }}</span>
+                </div>
+                <div class="mb-3">
+                    <span class="text-muted small d-block">Season</span>
+                    <span>{{ product.season|default:"-" }}</span>
+                </div>
+                <div class="mb-3">
+                    <span class="text-muted small d-block">Material</span>
+                    <span>{{ product.material|default:"-" }}</span>
+                </div>
+
+                {% if product.description %}
+                <div class="mt-4">
+                    <h6 class="text-muted small text-uppercase">Description</h6>
+                    <p class="small text-muted mb-0">{{ product.description }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <h5 class="mb-0">Variants & Stock</h5>
+                {% if user.is_manager %}
+                <button class="btn btn-sm btn-primary">+ Add Variant</button>
+                {% endif %}
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Color</th>
+                            <th>Size</th>
+                            <th>Retail Price</th>
+                            <th>Current Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for variant in product.variants.all %}
+                        <tr>
+                            <td class="font-monospace small">{{ variant.sku }}</td>
+                            <td>{{ variant.color }}</td>
+                            <td>{{ variant.size }}</td>
+                            <td>${{ variant.retail_price }}</td>
+                            <td>{{ variant.initial_quantity }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">No variants added yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
