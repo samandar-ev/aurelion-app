@@ -1,5 +1,5 @@
 {% extends 'core/base.html' %}
-{% load number_filters %}
+{% load number_filters tz %}
 
 {% block title %}Orders - AURELION{% endblock %}
 
@@ -46,8 +46,8 @@
                         {% endif %}
                     </td>
                     <td>
-                        <span>{{ order.created_at|date:"M d, Y" }}</span>
-                        <span class="text-muted text-sm ms-1">{{ order.created_at|time:"H:i" }}</span>
+                        <span>{{ order.created_at|localtime|date:"M d, Y" }}</span>
+                        <span class="text-muted text-sm ms-1">{{ order.created_at|localtime|time:"H:i" }}</span>
                     </td>
                     <td>{{ order.client|default:"Walk-in" }}</td>
                     <td class="text-end">

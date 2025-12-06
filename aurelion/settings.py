@@ -1,5 +1,7 @@
 import os
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # basic django settings file, trying to keep it simple
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -96,7 +98,66 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+def detect_system_timezone():
+    """
+    Pick up the local machine timezone (or env override) so displayed times
+    match the host without hardcoding a region. Works across Linux/macOS/Windows
+    when tzdata is available.
+    """
+    def _validate_tz(name):
+        try:
+            ZoneInfo(name)
+            return name
+        except Exception:
+            return None
+
+    env_tz = os.getenv('DJANGO_TIME_ZONE') or os.getenv('TZ')
+    if env_tz and _validate_tz(env_tz):
+        return env_tz
+
+    def _from_path(path):
+        try:
+            real = os.path.realpath(path)
+            parts = real.split(os.sep)
+            tz_name = None
+            for i, p in enumerate(parts):
+                if p.startswith('zoneinfo') and i + 1 < len(parts):
+                    tz_name = '/'.join(parts[i + 1 :])
+                    break
+            if tz_name and _validate_tz(tz_name):
+                return tz_name
+        except Exception:
+            return None
+        return None
+    for candidate in ['/etc/localtime', '/var/db/timezone/localtime']:
+        tz_name = _from_path(candidate)
+        if tz_name:
+            return tz_name
+    try:
+        with open('/etc/timezone', 'r') as fh:
+            tz_name = fh.read().strip()
+            if tz_name and _validate_tz(tz_name):
+                return tz_name
+    except Exception:
+        pass
+    try:
+        # tzlocal handles Windows and Unix; returns canonical IANA names when tzdata is installed
+        import tzlocal
+        tz_name = tzlocal.get_localzone_name()
+        if tz_name and _validate_tz(tz_name):
+            return tz_name
+    except Exception:
+        pass
+    try:
+        tzinfo = datetime.now().astimezone().tzinfo
+        tz_name = getattr(tzinfo, 'key', None) or getattr(tzinfo, 'zone', None) or tzinfo.tzname(None)
+        if tz_name and _validate_tz(tz_name):
+            return tz_name
+    except Exception:
+        pass
+    return 'UTC'
+
+TIME_ZONE = detect_system_timezone()
 
 USE_I18N = True
 

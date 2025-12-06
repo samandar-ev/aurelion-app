@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load tz %}
 
 {% block title %}Client Detail - AURELION{% endblock %}
 
@@ -48,7 +49,7 @@
                 {% for order in client.order_set.all %}
                 <tr>
                     <td>#{{ order.order_code|default:order.id }}</td>
-                    <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ order.created_at|localtime|date:"Y-m-d H:i" }}</td>
                     <td>
                         <small class="text-muted">
                             {% for item in order.items.all %}

@@ -159,7 +159,7 @@ class OrderDetailView(LoginRequiredMixin, DetailView):
             'order_code': order.order_code or str(order.id),
             'client': str(order.client) if order.client else 'Walk-in',
             'cashier': order.created_by.username,
-            'created_at': order.created_at.isoformat(),
+            'created_at': timezone.localtime(order.created_at).isoformat(),
             'total': float(order.total_amount),
             'discount': float(order.total_discount),
             'subtotal': float(order.total_amount + order.total_discount),
@@ -1167,7 +1167,7 @@ class POSCheckoutView(CashierOnlyMixin, View):
             'discount': float(order.total_discount),
             'subtotal': float(total),
             'items': response_items,
-            'created_at': order.created_at.isoformat(),
+            'created_at': timezone.localtime(order.created_at).isoformat(),
         })
 
 def calculate_order_return_status(order):
@@ -1479,7 +1479,7 @@ class POSReturnCheckoutView(CashierRequiredMixin, View):
                     'reason': reason,
                     'returned_items': returned_items_list,
                     'replacement_items': replacement_items_list,
-                    'created_at': timezone.now().isoformat(),
+                    'created_at': timezone.localtime(timezone.now()).isoformat(),
                     'cashier': request.user.username,
                     'client': str(client_obj) if client_obj else 'Walk-in',
                 })
